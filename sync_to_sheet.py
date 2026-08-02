@@ -1,4 +1,3 @@
-import os
 from datetime import datetime, timezone
 
 import gspread
@@ -34,15 +33,40 @@ def to_row(payment):
     ]
 
 
+def existing_payment_ids(worksheet):
+    """Payment IDs already in column A, excluding the header."""
+    column = worksheet.col_values(1)
+    if not column:
+        return set()
+    return set(column[1:])
+
+
+def ensure_headers(worksheet):
+    if not worksheet.col_values(1):
+        worksheet.update(values=[HEADERS], range_name="A1")
+        print("Wrote headers to empty sheet")
+
+
 def main():
     payments = fetch_all_payments()
-    rows = [to_row(p) for p in payments]
 
     worksheet = get_worksheet()
-    worksheet.clear()
-    worksheet.update(values=[HEADERS] + rows, range_name="A1")
+    ensure_headers(worksheet)
 
-    print(f"\nWrote {len(rows)} rows to '{SHEET_NAME}'")
+    already_there = existing_payment_ids(worksheet)
+    new_payments = [p for p in payments if p.id not in already_there]
+
+    skipped = len(payments) - len(new_payments)
+
+    if not new_payments:
+        print(f"\nNothing new. {skipped} payments already in the sheet.")
+        return
+
+    # Oldest first, so the sheet reads chronologically as it grows.
+    rows = [to_row(p) for p in reversed(new_payments)]
+    worksheet.append_rows(rows, value_input_option="USER_ENTERED")
+
+    print(f"\nAdded {len(rows)} new rows. Skipped {skipped} already present.")
 
 
 if __name__ == "__main__":
