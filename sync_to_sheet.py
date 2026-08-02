@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 
 import gspread
+import json
+import os
 from google.oauth2.service_account import Credentials
 
 from fetch_payments import fetch_all_payments
@@ -60,9 +62,15 @@ SCOPES = [
 HEADERS = ["Payment ID", "Date", "Amount", "Status", "Description"]
 
 
+def get_credentials():
+    raw = os.getenv("GOOGLE_CREDENTIALS")
+    if raw:
+        return Credentials.from_service_account_info(json.loads(raw), scopes=SCOPES)
+    return Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=SCOPES)
+
+
 def get_worksheet():
-    creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=SCOPES)
-    client = gspread.authorize(creds)
+    client = gspread.authorize(get_credentials())
     return client.open(SHEET_NAME).sheet1
 
 
